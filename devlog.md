@@ -15,3 +15,11 @@ When making a new tree I assign root id = 0 and next block id = 1. Assigning 0 t
 I've tested creating a file, then creating the same file again to check that it gives an error and does not change the file and executing search command on a nonexistent file and on some normal text file. All these cases returned the correct errors instead of crashing.
 
 Reading and writing nodes, inserting, and search next.
+
+# 11-26 1:37pm
+
+Starting session 2. Create works but there is no real tree yet, so this session will be about creating nodes, inserting to a one node tree and searching.
+
+The node data structure fits into one 512 byte block, starting at byte n * 512. Inside we have the id of the node, its parent id, number of keys, then 19 keys, 19 values and 20 child pointers, all 8 byte big-endian. I will create one function for converting a node to a list of bytes and vice versa, so the rest of the program can just use the node structure without worrying about offsets.
+
+Inserting a key when the tree is empty, will create the first node in block 1 and will be the root of the tree. Otherwise the key goes into the root node in sorted order. Searching starts at the root node and uses child pointers, therefore it keeps only one node in memory at a time. Splitting will come in the next session, so the tree will stop at 19 keys.
