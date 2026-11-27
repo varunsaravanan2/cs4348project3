@@ -23,3 +23,14 @@ Starting session 2. Create works but there is no real tree yet, so this session 
 The node data structure fits into one 512 byte block, starting at byte n * 512. Inside we have the id of the node, its parent id, number of keys, then 19 keys, 19 values and 20 child pointers, all 8 byte big-endian. I will create one function for converting a node to a list of bytes and vice versa, so the rest of the program can just use the node structure without worrying about offsets.
 
 Inserting a key when the tree is empty, will create the first node in block 1 and will be the root of the tree. Otherwise the key goes into the root node in sorted order. Searching starts at the root node and uses child pointers, therefore it keeps only one node in memory at a time. Splitting will come in the next session, so the tree will stop at 19 keys.
+
+
+# 11-26 7:42pm
+
+Got nodes, insert, and search running. A node in memory is just a dict with the same keys as the block, and I have one function that writes the node into the block and another that reads it, so everything else uses the dict interface and not any byte offsets. If the tree is empty, insert creates the first node in block 1 and makes that the root. After that, newly added keys will be moved to sorted order.
+
+Since the specification doesn't say how to handle duplicates, I print an error message and ignore the key. Also, I won't accept negative numbers or non-numbers, or anything 2^64 or bigger, as keys or values because they can only be stored as 8 byte unsigned integers.
+
+My test inserts the keys out of order, then searches for all of them and for one key that's not there, adds a duplicate, and throws a negative number and a word. At this point, the tree can only hold 19 keys, as the splitting functionality hasn't been implemented yet.
+
+Splitting coming up next.
