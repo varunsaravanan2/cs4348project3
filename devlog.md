@@ -34,3 +34,14 @@ Since the specification doesn't say how to handle duplicates, I print an error m
 My test inserts the keys out of order, then searches for all of them and for one key that's not there, adds a duplicate, and throws a negative number and a word. At this point, the tree can only hold 19 keys, as the splitting functionality hasn't been implemented yet.
 
 Splitting coming up next.
+
+
+# 11-27 12:25pm
+
+Got nodes, insert, and search running. A node in memory is just a dict with the same keys as the block, and I have one function that writes the node into the block and another that reads it, so everything else uses the dict interface and not any byte offsets. If the tree is empty, insert creates the first node in block 1 and makes that the root. After that, newly added keys will be moved to sorted order.
+
+Since the specification doesn't say how to handle duplicates, I print an error message and ignore the key. Also, I won't accept negative numbers or non-numbers, or anything 2^64 or bigger, as keys or values because they can only be stored as 8 byte unsigned integers.
+
+My test inserts the keys out of order, then searches for all of them and for one key that's not there, adds a duplicate, and throws a negative number and a word. At this point, the tree can only hold 19 keys, as the splitting functionality hasn't been implemented yet.
+
+Splitting coming up next.
