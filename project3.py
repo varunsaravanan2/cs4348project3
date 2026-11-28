@@ -113,6 +113,75 @@ def create(filename):
     print("Created index file " + filename)
 
 
+# looks for a key going down from the root, only holding one node at a time.
+# gives back the value, or None if the key isn't there
+def find(f, root, key):
+    block_id = root
+    while block_id != 0:
+        node = read_node(f, block_id)
+        i = 0
+        while i < node["n"] and key > node["keys"][i]:
+            i += 1
+        if i < node["n"] and node["keys"][i] == key:
+            return node["values"][i]
+        block_id = node["children"][i]
+    return None
+
+
+def is_leaf(node):
+    return node["children"][0] == 0
+
+
+# write just the 8 byte parent field of a node without loading the whole node
+def set_parent(f, block_id, parent):
+    f.seek(block_id * BLOCK_SIZE + 8)
+    f.write(to_bytes(parent))
+
+
+# splits the full child y, which is child number i of parent x.
+# y keeps the first 9 keys, the new node z gets the last 9,
+# and the middle key moves up into x. only x, y, and z are in memory.
+def split_child(f, x, i, y, next_block):
+    z = new_node(next_block, x["id"])
+    z["n"] = 9
+    for j in range(9):
+        z["keys"][j] = y["keys"][j + 10]
+        z["values"][j] = y["values"][j + 10]
+
+    # the last 10 children move over to z, so their parent field has to change
+    if not is_leaf(y):
+        for j in range(10):
+            z["children"][j] = y["children"][j + 10]
+            set_parent(f, z["children"][j], z["id"])
+
+    middle_key = y["keys"][9]
+    middle_value = y["values"][9]
+
+    # clear out the spots y doesn't use anymore
+    for j in range(9, MAX_KEYS):
+        y["keys"][j] = 0
+        y["values"][j] = 0
+    for j in range(10, MAX_CHILDREN):
+        y["children"][j] = 0
+    y["n"] = 9
+
+    # make room in x for z and the middle key
+    for j in range(x["n"], i, -1):
+        x["children"][j + 1] = x["children"][j]
+    x["children"][i + 1] = z["id"]
+    for j in range(x["n"] - 1, i - 1, -1):
+        x["keys"][j + 1] = x["keys"][j]
+        x["values"][j + 1] = x["values"][j]
+    x["keys"][i] = middle_key
+    x["values"][i] = middle_value
+    x["n"] += 1
+
+    write_node(f, y)
+    write_node(f, z)
+    write_node(f, x)
+    return z
+
+
 def insert(filename, key, value):
     with open(filename, "r+b") as f:
         root, next_block = read_header(f)
@@ -128,46 +197,64 @@ def insert(filename, key, value):
             print("Inserted " + str(key) + ", " + str(value))
             return
 
-        node = read_node(f, root)
-
         # no duplicate keys
-        for i in range(node["n"]):
-            if node["keys"][i] == key:
-                error("key " + str(key) + " is already in the index")
+        if find(f, root, key) is not None:
+            error("key " + str(key) + " is already in the index")
 
-        if node["n"] == MAX_KEYS:
-            error("the node is full (splitting isn't done yet)")
+        x = read_node(f, root)
 
-        # shift bigger keys over one spot to keep them sorted
-        i = node["n"] - 1
-        while i >= 0 and node["keys"][i] > key:
-            node["keys"][i + 1] = node["keys"][i]
-            node["values"][i + 1] = node["values"][i]
+        # if the root is full, make a new root above it and split the old one.
+        # this is the only way the tree gets taller
+        if x["n"] == MAX_KEYS:
+            new_root = new_node(next_block, 0)
+            new_root["children"][0] = x["id"]
+            x["parent"] = new_root["id"]
+            next_block += 1
+            split_child(f, new_root, 0, x, next_block)
+            next_block += 1
+            root = new_root["id"]
+            write_header(f, root, next_block)
+            x = new_root
+            new_root = None
+
+        # go down to a leaf, splitting any full child before moving into it,
+        # so there's always room for a key that gets pushed up
+        while not is_leaf(x):
+            i = 0
+            while i < x["n"] and key > x["keys"][i]:
+                i += 1
+            child = read_node(f, x["children"][i])
+            if child["n"] == MAX_KEYS:
+                z = split_child(f, x, i, child, next_block)
+                next_block += 1
+                write_header(f, root, next_block)
+                if key > x["keys"][i]:
+                    child = z
+                # done with whichever half we're not going into,
+                # so it doesn't count toward the 3 nodes in memory
+                z = None
+            x = child
+
+        # x is a leaf with room, so shift bigger keys over and put the key in
+        i = x["n"] - 1
+        while i >= 0 and x["keys"][i] > key:
+            x["keys"][i + 1] = x["keys"][i]
+            x["values"][i + 1] = x["values"][i]
             i -= 1
-        node["keys"][i + 1] = key
-        node["values"][i + 1] = value
-        node["n"] += 1
-        write_node(f, node)
+        x["keys"][i + 1] = key
+        x["values"][i + 1] = value
+        x["n"] += 1
+        write_node(f, x)
         print("Inserted " + str(key) + ", " + str(value))
 
 
 def search(filename, key):
     with open(filename, "rb") as f:
         root, next_block = read_header(f)
-        block_id = root
-
-        # go down from the root, only ever holding one node
-        while block_id != 0:
-            node = read_node(f, block_id)
-            i = 0
-            while i < node["n"] and key > node["keys"][i]:
-                i += 1
-            if i < node["n"] and node["keys"][i] == key:
-                print(str(key) + ", " + str(node["values"][i]))
-                return
-            block_id = node["children"][i]
-
-    error("key " + str(key) + " not found")
+        value = find(f, root, key)
+    if value is None:
+        error("key " + str(key) + " not found")
+    print(str(key) + ", " + str(value))
 
 
 def main():

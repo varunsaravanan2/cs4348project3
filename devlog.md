@@ -45,3 +45,13 @@ Since the specification doesn't say how to handle duplicates, I print an error m
 My test inserts the keys out of order, then searches for all of them and for one key that's not there, adds a duplicate, and throws a negative number and a word. At this point, the tree can only hold 19 keys, as the splitting functionality hasn't been implemented yet.
 
 Splitting coming up next.
+
+# 11-27 5:46pm
+
+Splitting works, so now the tree can be extended beyond 19 keys. A full node splits into two nodes of 9 keys each, and the middle key goes up into the parent node. If the root is full, I create a new root above it, so that's how the tree grows in height.
+
+While inserting, I split full nodes along the way down, which means that there will be enough space in the parent for the moved key. So a split operation requires three nodes: parent node, full node and new node. Since children from the full node are moving to the new node, I need to change their parent field, but rather than loading these nodes, I simply store 8-byte long parent fields in each of them. And I had to unload the other half of the split after the split operation, since otherwise another split operation further down would have kept 4 nodes in memory.
+
+I've tested it by inserting 100 keys and looking for keys at beginning, middle, end and one non-existent key.
+
+Next step is to print, load and extract operations.
