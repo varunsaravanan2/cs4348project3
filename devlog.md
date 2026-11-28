@@ -55,3 +55,11 @@ While inserting, I split full nodes along the way down, which means that there w
 I've tested it by inserting 100 keys and looking for keys at beginning, middle, end and one non-existent key.
 
 Next step is to print, load and extract operations.
+
+# 11-27 9:04pm
+
+Starting Session 4. Everything up until now (insert, search, and splitting) works. In this session I will add the last three commands: print, load, and extract.
+
+Both extract and print have to visit every key, in order. The usual algorithm would be in-order traversal that involves keeping every node along the way from the root in memory. This can be more than 3 after the tree gets high enough. For this reason I'm going to do these commands using parent pointers. I will maintain just the current node and once I'm done visiting it, will check the parent for my block ID to resume searching from there. This way I will have at most one or two nodes in memory.
+
+Load command loads a csv file with key/value pairs and adds the entries as the function insert does. I still have to make a decision about how to process lines that aren't valid. This can happen if a value is missing or it isn't a number. The extract command will write every pair into a new file in the same format and if the file already exists, will throw an error, as create did.
